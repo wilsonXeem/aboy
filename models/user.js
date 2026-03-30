@@ -10,6 +10,10 @@ const userSchema = new Schema({
     type: String,
     required: true,
   },
+  capturedAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
 module.exports = mongoose.model("User", userSchema);
